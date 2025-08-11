@@ -7,7 +7,7 @@ NUM_EPOCHS = 10
 
 
 # Standard MLP for MNIST (input 784, two hidden layers, output 10)
-class MLP(nn.Module):
+class MLP_2HLStandard(nn.Module):
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
@@ -22,9 +22,31 @@ class MLP(nn.Module):
         return self.net(x)
 
 
+# MLP with skip connections
+class MLP_2HLSkip(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(784, 64)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc_skip = nn.Linear(
+            784, 32
+        )  # skip connection from input to 2nd hidden layer
+        self.fc3 = nn.Linear(32, 10)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        h1 = self.relu(self.fc1(x))
+        h2 = self.relu(self.fc2(h1) + self.fc_skip(x))
+        out = self.fc3(h2)
+        return out
+
+
 def train_mlp(train_loader, test_loader):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = MLP().to(device)
+
+    # model = MLP_2HLStandard().to(device)
+    model = MLP_2HLSkip().to(device)
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
@@ -68,7 +90,7 @@ def main():
     print("Test set size:", len(datatest.dataset))
 
     print("Single element size:", datatrain.dataset[0][0].size())
-    print(_mnist_helpers.ascii_mnist_sample(datatrain.dataset[2]))
+    # print(_mnist_helpers.ascii_mnist_sample(datatrain.dataset[2]))
 
     print("\nStarting training...")
     train_mlp(datatrain, datatest)
