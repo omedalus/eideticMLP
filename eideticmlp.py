@@ -3,57 +3,16 @@ import torch.nn as nn
 import torch.optim as optim
 import _mnist_helpers
 
-from eidetic_hidden_layer_lookup import EideticHiddenLayerLookup
+import _mlp_conventional_topologies
+import _mlp_novel_topology
 
-NUM_EPOCHS = 10
-
-
-# MLP with skip connections and a memory injector.
-class MLP_2HLSkipWithEideticMem(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.eidetic_mem = EideticHiddenLayerLookup()
-
-        self.fullconn_sensory_to_indexer = nn.Linear(784, 64)
-        self.fullconn_indexer_to_integrator = nn.Linear(64, 32)
-
-        self.fullconn_sensory_skip_to_integrator = nn.Linear(784, 32)
-        self.fullconn_recaller_to_integrator = nn.Linear(784, 32)
-
-        self.fullconn_integrator_to_output = nn.Linear(32, 10)
-
-        self.relu = nn.ReLU()
-
-    def forward(self, x_sensory: torch.Tensor):
-        # Remember: x_sensory is a *batch* of sensory inputs.
-        activations_indexer = self.relu(self.fullconn_sensory_to_indexer(x_sensory))
-
-        # activations_indexer is now a *batch* of activation vectors of the
-        # indexer layer. For each one, we need to find the corresponding
-        # past sensory vector in the eidetic memory, which will populate
-        # the recall layer.
-        x_recaller = torch.zeros_like(x_sensory)
-        if len(self.eidetic_mem) > 0:
-            x_recaller = self.eidetic_mem.lookup_batch(activations_indexer)
-
-        # Update the eidetic memory, associating the current
-        # indexer activations with the sensory input
-        self.eidetic_mem.insert_batch(activations_indexer, x_sensory)
-        print("Eidetic memory size now:", len(self.eidetic_mem))
-
-        activations_integrator = self.relu(
-            self.fullconn_indexer_to_integrator(activations_indexer)
-            + self.fullconn_recaller_to_integrator(x_recaller)
-        )
-
-        activations_output = self.fullconn_integrator_to_output(activations_integrator)
-        return activations_output
+NUM_EPOCHS = 30
 
 
 def train_mlp(train_loader, test_loader):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = MLP_2HLSkipWithEideticMem().to(device)
+    model = _mlp_novel_topology.MLP_2HLSkipWithEideticMem().to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -92,7 +51,10 @@ def evaluate(model, loader, device):
 
 
 def main():
-    datatrain, datatest = _mnist_helpers.load_MNIST_dataset()
+    datatrain, datatest = _mnist_helpers.load_MNIST_dataset(
+        train_size=10000,
+        test_size=1000,
+    )
 
     print("Training set size:", len(datatrain.dataset))
     print("Test set size:", len(datatest.dataset))

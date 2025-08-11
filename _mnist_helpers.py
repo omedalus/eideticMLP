@@ -1,15 +1,22 @@
 import math
 import torch
-from torch.utils.data import DataLoader
-from typing import Tuple
+from torch.utils.data import DataLoader, Subset
+
+from typing import Optional, Tuple
 
 
-def load_MNIST_dataset() -> Tuple[DataLoader, DataLoader]:
+def load_MNIST_dataset(
+    train_size: Optional[int] = None,
+    test_size: Optional[int] = None,
+) -> Tuple[DataLoader, DataLoader]:
     """
     Loads the MNIST dataset and returns DataLoader objects for training and test sets.
 
-    The images are transformed to tensors, flattened to 1D vectors of length 784, and normalized
-    so that each sample has a mean of 0.5.
+    The images are transformed to tensors, flattened to 1D vectors of length 784.
+
+    Args:
+        train_size (int, optional): Number of training samples to use. If None, use all.
+        test_size (int, optional): Number of test samples to use. If None, use all.
 
     Returns:
         Tuple[DataLoader, DataLoader]:
@@ -39,6 +46,12 @@ def load_MNIST_dataset() -> Tuple[DataLoader, DataLoader]:
         download=True,
         transform=transform,
     )
+
+    if train_size is not None:
+        train_dataset = Subset(train_dataset, list(range(train_size)))
+    if test_size is not None:
+        test_dataset = Subset(test_dataset, list(range(test_size)))
+
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
     return train_loader, test_loader
