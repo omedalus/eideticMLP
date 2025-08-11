@@ -12,7 +12,9 @@ class EideticHiddenLayerLookup:
         """
         self.key_dim = key_dim
         self.n_trees = n_trees
+
         self._annoy_index = None
+        self._keys: List[torch.Tensor] = []
         self._values: List[torch.Tensor] = []
         self._built = False
 
@@ -42,10 +44,17 @@ class EideticHiddenLayerLookup:
             )
         if self._annoy_index is None:
             self._annoy_index = AnnoyIndex(self.key_dim, "euclidean")
+        elif self._built:
+            # Recreate index and re-add all items if already built
+            old_keys = self._keys.copy()
+            self._annoy_index = AnnoyIndex(self.key_dim, "euclidean")
+            for idx, k in enumerate(old_keys):
+                self._annoy_index.add_item(idx, k.cpu().detach().numpy().tolist())
+            self._built = False
         idx = len(self._values)
-        self._annoy_index.add_item(idx, key.cpu().numpy().tolist())
+        self._annoy_index.add_item(idx, key.cpu().detach().numpy().tolist())
+        self._keys.append(key.clone())
         self._values.append(value.clone())
-        self._built = False
 
     def insert_batch(self, keys: torch.Tensor, values: torch.Tensor):
         """
@@ -91,7 +100,9 @@ class EideticHiddenLayerLookup:
                 f"Lookup key must have dimension {self.key_dim}, got {key.shape[0]}"
             )
         self._ensure_built()
-        idx = self._annoy_index.get_nns_by_vector(key.cpu().numpy().tolist(), 1)[0]
+        idx = self._annoy_index.get_nns_by_vector(
+            key.detach().cpu().numpy().tolist(), 1
+        )[0]
         return self._values[idx]
 
     def lookup_batch(self, keys: torch.Tensor) -> torch.Tensor:

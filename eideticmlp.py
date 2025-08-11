@@ -33,8 +33,8 @@ class MLP_2HLSkipWithEideticMem(nn.Module):
         # past sensory vector in the eidetic memory, which will populate
         # the recall layer.
         x_recaller = torch.zeros_like(x_sensory)
-        # if len(self.eidetic_mem) > 0:
-        #     x_recaller = self.eidetic_mem.lookup_batch(activations_indexer)
+        if len(self.eidetic_mem) > 0:
+            x_recaller = self.eidetic_mem.lookup_batch(activations_indexer)
 
         # Update the eidetic memory, associating the current
         # indexer activations with the sensory input
