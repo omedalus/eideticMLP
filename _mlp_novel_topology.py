@@ -37,7 +37,6 @@ class MLP_2HLSkipWithEideticMem(nn.Module):
             # indexer activations with the sensory input
             # Only do this on the training pass.
             self.eidetic_mem.insert_batch(activations_indexer, x_sensory)
-            print("Eidetic memory size now:", len(self.eidetic_mem))
 
         activations_integrator = self.relu(
             self.fullconn_indexer_to_integrator(activations_indexer)

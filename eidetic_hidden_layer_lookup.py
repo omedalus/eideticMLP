@@ -8,6 +8,7 @@ class EideticHiddenLayerLookup:
         self._storage: List[Tuple[List[float], List[float]]] = []
         self.insertion_exclusion_radius = 0.1
         self.lookup_exclusion_radius = 0.1
+        self.enabled = True
 
     def __len__(self):
         """Return the number of stored key-value pairs."""
@@ -22,7 +23,11 @@ class EideticHiddenLayerLookup:
                 return True
         return False
 
-    def insert(self, key: torch.Tensor, value: torch.Tensor) -> bool:
+    def insert(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+    ) -> bool:
         """
         Insert a key-value pair if no existing key is within the exclusion radius.
         Returns True if the pair was inserted, False if it was blocked by another key
@@ -30,6 +35,9 @@ class EideticHiddenLayerLookup:
         key: 1D torch.Tensor
         value: torch.Tensor (any shape)
         """
+        if not self.enabled:
+            return False
+
         keylist = [float(x.detach()) for x in key]
 
         if self._storage:
@@ -77,6 +85,8 @@ class EideticHiddenLayerLookup:
         as long as it is not within the exclusion radius.
         Returns the value tensor.
         """
+        if not self.enabled:
+            return None
         if not self._storage:
             return None
 
