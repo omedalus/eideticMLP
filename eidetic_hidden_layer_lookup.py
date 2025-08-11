@@ -1,19 +1,23 @@
 import torch
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 class EideticHiddenLayerLookup:
     def __init__(self):
         # Store (key, value) pairs
         self._storage: List[Tuple[torch.Tensor, torch.Tensor]] = []
+        self.insertion_exclusion_radius = 0.1
+        self.lookup_exclusion_radius = 0.1
 
     def __len__(self):
         """Return the number of stored key-value pairs."""
         return len(self._storage)
 
-    def insert(self, key: torch.Tensor, value: torch.Tensor):
+    def insert(self, key: torch.Tensor, value: torch.Tensor) -> bool:
         """
-        Insert a key-value pair.
+        Insert a key-value pair if no existing key is within the exclusion radius.
+        Returns True if the pair was inserted, False if it was blocked by another key
+        already within the exclusion radius.
         key: 1D torch.Tensor
         value: torch.Tensor (any shape)
         """
@@ -36,11 +40,19 @@ class EideticHiddenLayerLookup:
                 raise ValueError(
                     f"All keys must have the same shape. Existing key shape: {first_key_shape}, new key shape: {key.shape}"
                 )
+            # Exclusion radius check
+            for stored_key, _ in self._storage:
+                dist = torch.sum(torch.abs(stored_key - key)).item()
+                # The exclusion distance is scaled up by the dimensionality.
+                if dist < (self.insertion_exclusion_radius * key.shape[0]):
+                    # Do not insert if within exclusion radius
+                    return False
         self._storage.append((key.clone(), value.clone()))
+        return True
 
     def insert_batch(self, keys: torch.Tensor, values: torch.Tensor):
         """
-        Insert multiple key-value pairs.
+        Insert multiple key-value pairs, skipping any whose key is within the exclusion radius of an existing key.
         keys: 2D torch.Tensor (batch_size, key_dim)
         values: torch.Tensor (batch_size, ...)
         """
@@ -57,9 +69,10 @@ class EideticHiddenLayerLookup:
         for i in range(keys.size(0)):
             self.insert(keys[i], values[i])
 
-    def lookup(self, key: torch.Tensor) -> torch.Tensor:
+    def lookup(self, key: torch.Tensor) -> Optional[torch.Tensor]:
         """
-        Find the value whose key is nearest (Manhattan distance) to the given key.
+        Find the value whose key is nearest (Manhattan distance) to the given key,
+        as long as it is not within the exclusion radius.
         Returns the value tensor.
         """
         if not self._storage:
@@ -82,6 +95,9 @@ class EideticHiddenLayerLookup:
             if stored_key.shape != key.shape:
                 raise ValueError("All keys must have the same shape.")
             dist = torch.sum(torch.abs(stored_key - key)).item()
+            if dist < self.lookup_exclusion_radius:
+                # Ignore keys within the exclusion radius
+                continue
             if (min_dist is None) or (dist < min_dist):
                 min_dist = dist
                 nearest_value = stored_value
