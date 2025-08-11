@@ -5,13 +5,22 @@ from typing import List, Optional, Tuple
 class EideticHiddenLayerLookup:
     def __init__(self):
         # Store (key, value) pairs
-        self._storage: List[Tuple[torch.Tensor, torch.Tensor]] = []
+        self._storage: List[Tuple[List[float], List[float]]] = []
         self.insertion_exclusion_radius = 0.1
         self.lookup_exclusion_radius = 0.1
 
     def __len__(self):
         """Return the number of stored key-value pairs."""
         return len(self._storage)
+
+    def is_any_key_near(self, key: torch.Tensor, exclusion_radius: float) -> bool:
+        keylist = [float(x) for x in key]
+        dimensionality = len(keylist)
+        for stored_key, _ in self._storage:
+            dist = sum(abs(a - b) for a, b in zip(stored_key, keylist))
+            if dist < (exclusion_radius * dimensionality):
+                return True
+        return False
 
     def insert(self, key: torch.Tensor, value: torch.Tensor) -> bool:
         """
@@ -21,33 +30,26 @@ class EideticHiddenLayerLookup:
         key: 1D torch.Tensor
         value: torch.Tensor (any shape)
         """
-        if not isinstance(key, torch.Tensor):
-            raise ValueError(
-                "Insertion key must be a 1D torch.Tensor. Instead it's {}".format(
-                    type(key)
-                )
-            )
-        if key.dim() != 1:
-            raise ValueError(
-                "Insertion key must be a 1D torch.Tensor. Instead it has {} dimensions".format(
-                    key.dim()
-                )
-            )
-        # Sanity check: all keys must be the same shape
+        keylist = [float(x.detach()) for x in key]
+
         if self._storage:
-            first_key_shape = self._storage[0][0].shape
-            if key.shape != first_key_shape:
+            randomkey = self._storage[0][0]
+            randomvalue = self._storage[0][1]
+            if len(keylist) != len(randomkey):
                 raise ValueError(
-                    f"All keys must have the same shape. Existing key shape: {first_key_shape}, new key shape: {key.shape}"
+                    f"Key dimensionality must match. Existing key dimensionality: {len(randomkey)}, new key dimensionality: {len(keylist)}"
                 )
-            # Exclusion radius check
-            for stored_key, _ in self._storage:
-                dist = torch.sum(torch.abs(stored_key - key)).item()
-                # The exclusion distance is scaled up by the dimensionality.
-                if dist < (self.insertion_exclusion_radius * key.shape[0]):
-                    # Do not insert if within exclusion radius
-                    return False
-        self._storage.append((key.clone(), value.clone()))
+            if len(value) != len(randomvalue):
+                raise ValueError(
+                    f"Value dimensionality must match. Existing value dimensionality: {len(randomvalue)}, new value dimensionality: {len(value)}"
+                )
+
+        valuelist = [float(x.detach()) for x in value]
+
+        if self.is_any_key_near(keylist, self.insertion_exclusion_radius):
+            return False
+
+        self._storage.append((keylist, valuelist))
         return True
 
     def insert_batch(self, keys: torch.Tensor, values: torch.Tensor):
@@ -76,49 +78,48 @@ class EideticHiddenLayerLookup:
         Returns the value tensor.
         """
         if not self._storage:
-            raise ValueError("No keys have been inserted.")
-        if not isinstance(key, torch.Tensor):
-            raise ValueError(
-                "Lookup key must be a 1D torch.Tensor. Instead it's {}".format(
-                    type(key)
-                )
-            )
-        if key.dim() != 1:
-            raise ValueError(
-                "Lookup key must be a 1D torch.Tensor. Instead it has {} dimensions".format(
-                    key.dim()
-                )
-            )
+            return None
+
+        keylist = [float(x.detach()) for x in key]
+        dimensionality = len(keylist)
+
+        exclusion_dist = self.lookup_exclusion_radius * dimensionality
+
         min_dist = None
         nearest_value = None
+
         for stored_key, stored_value in self._storage:
-            if stored_key.shape != key.shape:
-                raise ValueError("All keys must have the same shape.")
-            dist = torch.sum(torch.abs(stored_key - key)).item()
-            if dist < self.lookup_exclusion_radius:
-                # Ignore keys within the exclusion radius
+            dist = sum(abs(a - b) for a, b in zip(stored_key, keylist))
+            if dist < exclusion_dist:
                 continue
             if (min_dist is None) or (dist < min_dist):
                 min_dist = dist
                 nearest_value = stored_value
+
         return nearest_value
 
-    def lookup_batch(self, keys: torch.Tensor) -> torch.Tensor:
+    def lookup_batch(self, keys: torch.Tensor) -> Optional[torch.Tensor]:
         """
         For each key in the 2D tensor 'keys', call lookup and return a tensor of results.
         keys: 2D torch.Tensor (batch_size, key_dim)
         Returns: torch.Tensor of results stacked along the first dimension.
         """
-        if not isinstance(keys, torch.Tensor):
-            raise ValueError("Lookup batch keys argument must be a torch.Tensor")
-        if keys.dim() < 2:
-            raise ValueError(
-                f"Lookup batch keys argument must have at least 2 dimensions, got {keys.dim()}D"
-            )
-        results = []
+        if not self._storage or not len(self._storage):
+            return None
+
+        randomvalue: List[float] = self._storage[0][1]
+        valuedimensionality = len(randomvalue)
+
+        # Prepare a results array. It needs to be the same dimensionality
+        # and on the same device as the keys.
+        results = keys.new_zeros((keys.size(0), valuedimensionality))
+
         for i in range(keys.size(0)):
             result = self.lookup(keys[i])
-            results.append(result.unsqueeze(0) if result.dim() > 0 else result)
+            if result is None:
+                continue
+            tensorresult = torch.tensor(result, dtype=keys.dtype)
+            results[i] = tensorresult
         # Try to stack results if possible, else return as is
         try:
             return torch.cat(results, dim=0)
