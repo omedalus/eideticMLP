@@ -3,8 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import _mnist_helpers
 
-NUM_EPOCHS = 5
-NUM_ITERATIONS_PER_EPOCH = 5
+NUM_EPOCHS = 10
 
 
 # Standard MLP for MNIST (input 784, two hidden layers, output 10)
@@ -12,11 +11,11 @@ class MLP(nn.Module):
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(784, 256),
+            nn.Linear(784, 64),
             nn.ReLU(),
-            nn.Linear(256, 128),
+            nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(128, 10),
+            nn.Linear(32, 10),
         )
 
     def forward(self, x):
