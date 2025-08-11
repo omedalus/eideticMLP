@@ -6,8 +6,8 @@ class EideticHiddenLayerLookup:
     def __init__(self):
         # Store (key, value) pairs
         self._storage: List[Tuple[List[float], List[float]]] = []
-        self.insertion_exclusion_radius = 0.1
-        self.lookup_exclusion_radius = 0.1
+        self.insertion_exclusion_radius = 0.05
+        self.lookup_exclusion_radius = 0.05
         self.enabled = True
 
     def __len__(self):

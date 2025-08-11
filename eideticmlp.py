@@ -15,7 +15,7 @@ def train_mlp(train_loader, test_loader):
     model = _mlp_novel_topology.MLP_2HLSkipWithEideticMem().to(device)
     # model = _mlp_conventional_topologies.MLP_2HLSkip().to(device)
 
-    model.eidetic_mem.enabled = False
+    model.eidetic_mem.enabled = True
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
