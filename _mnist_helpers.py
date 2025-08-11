@@ -53,10 +53,6 @@ def ascii_mnist_sample(mnistsample: Tuple[torch.Tensor, int]) -> str:
     """
     image, label = mnistsample
 
-    print(image)
-    print(max(image))
-    print(min(image))
-
     PIXEL_LEVEL_CHARS = ".+*#"
     pixel_levels = [max(0, min(3, math.floor(float(x) * 4))) for x in image]
     pixel_chars = [PIXEL_LEVEL_CHARS[x] for x in pixel_levels]
