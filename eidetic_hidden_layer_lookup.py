@@ -1,26 +1,15 @@
 import torch
-import numpy as np
-from annoy import AnnoyIndex
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 
 class EideticHiddenLayerLookup:
-    def __init__(self, key_dim: Optional[int] = None, n_trees: int = 10):
-        """
-        key_dim: dimension of the key vectors (required for Annoy)
-        n_trees: number of trees for Annoy index (higher = more accurate, slower build)
-        """
-        self.key_dim = key_dim
-        self.n_trees = n_trees
-
-        self._annoy_index = None
-        self._keys: List[torch.Tensor] = []
-        self._values: List[torch.Tensor] = []
-        self._built = False
+    def __init__(self):
+        # Store (key, value) pairs
+        self._storage: List[Tuple[torch.Tensor, torch.Tensor]] = []
 
     def __len__(self):
         """Return the number of stored key-value pairs."""
-        return len(self._values)
+        return len(self._storage)
 
     def insert(self, key: torch.Tensor, value: torch.Tensor):
         """
@@ -30,31 +19,24 @@ class EideticHiddenLayerLookup:
         """
         if not isinstance(key, torch.Tensor):
             raise ValueError(
-                f"Insertion key must be a 1D torch.Tensor. Instead it's {type(key)}"
+                "Insertion key must be a 1D torch.Tensor. Instead it's {}".format(
+                    type(key)
+                )
             )
         if key.dim() != 1:
             raise ValueError(
-                f"Insertion key must be a 1D torch.Tensor. Instead it has {key.dim()} dimensions"
+                "Insertion key must be a 1D torch.Tensor. Instead it has {} dimensions".format(
+                    key.dim()
+                )
             )
-        if self.key_dim is None:
-            self.key_dim = key.shape[0]
-        if key.shape[0] != self.key_dim:
-            raise ValueError(
-                f"All keys must have the same dimension {self.key_dim}, got {key.shape[0]}"
-            )
-        if self._annoy_index is None:
-            self._annoy_index = AnnoyIndex(self.key_dim, "euclidean")
-        elif self._built:
-            # Recreate index and re-add all items if already built
-            old_keys = self._keys.copy()
-            self._annoy_index = AnnoyIndex(self.key_dim, "euclidean")
-            for idx, k in enumerate(old_keys):
-                self._annoy_index.add_item(idx, k.cpu().detach().numpy().tolist())
-            self._built = False
-        idx = len(self._values)
-        self._annoy_index.add_item(idx, key.cpu().detach().numpy().tolist())
-        self._keys.append(key.clone())
-        self._values.append(value.clone())
+        # Sanity check: all keys must be the same shape
+        if self._storage:
+            first_key_shape = self._storage[0][0].shape
+            if key.shape != first_key_shape:
+                raise ValueError(
+                    f"All keys must have the same shape. Existing key shape: {first_key_shape}, new key shape: {key.shape}"
+                )
+        self._storage.append((key.clone(), value.clone()))
 
     def insert_batch(self, keys: torch.Tensor, values: torch.Tensor):
         """
@@ -75,35 +57,35 @@ class EideticHiddenLayerLookup:
         for i in range(keys.size(0)):
             self.insert(keys[i], values[i])
 
-    def _ensure_built(self):
-        if self._annoy_index is not None and not self._built:
-            self._annoy_index.build(self.n_trees)
-            self._built = True
-
     def lookup(self, key: torch.Tensor) -> torch.Tensor:
         """
-        Find the value whose key is nearest (Euclidean distance) to the given key using Annoy.
+        Find the value whose key is nearest (Manhattan distance) to the given key.
         Returns the value tensor.
         """
-        if not self._values:
+        if not self._storage:
             raise ValueError("No keys have been inserted.")
         if not isinstance(key, torch.Tensor):
             raise ValueError(
-                f"Lookup key must be a 1D torch.Tensor. Instead it's {type(key)}"
+                "Lookup key must be a 1D torch.Tensor. Instead it's {}".format(
+                    type(key)
+                )
             )
         if key.dim() != 1:
             raise ValueError(
-                f"Lookup key must be a 1D torch.Tensor. Instead it has {key.dim()} dimensions"
+                "Lookup key must be a 1D torch.Tensor. Instead it has {} dimensions".format(
+                    key.dim()
+                )
             )
-        if key.shape[0] != self.key_dim:
-            raise ValueError(
-                f"Lookup key must have dimension {self.key_dim}, got {key.shape[0]}"
-            )
-        self._ensure_built()
-        idx = self._annoy_index.get_nns_by_vector(
-            key.detach().cpu().numpy().tolist(), 1
-        )[0]
-        return self._values[idx]
+        min_dist = None
+        nearest_value = None
+        for stored_key, stored_value in self._storage:
+            if stored_key.shape != key.shape:
+                raise ValueError("All keys must have the same shape.")
+            dist = torch.sum(torch.abs(stored_key - key)).item()
+            if (min_dist is None) or (dist < min_dist):
+                min_dist = dist
+                nearest_value = stored_value
+        return nearest_value
 
     def lookup_batch(self, keys: torch.Tensor) -> torch.Tensor:
         """
@@ -121,6 +103,7 @@ class EideticHiddenLayerLookup:
         for i in range(keys.size(0)):
             result = self.lookup(keys[i])
             results.append(result.unsqueeze(0) if result.dim() > 0 else result)
+        # Try to stack results if possible, else return as is
         try:
             return torch.cat(results, dim=0)
         except Exception:
