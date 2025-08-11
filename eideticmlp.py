@@ -6,46 +6,42 @@ import _mnist_helpers
 NUM_EPOCHS = 10
 
 
-# Standard MLP for MNIST (input 784, two hidden layers, output 10)
-class MLP_2HLStandard(nn.Module):
+# MLP with skip connections and a memory injector.
+class MLP_2HLSkipWithEideticMem(nn.Module):
     def __init__(self):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(784, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 10),
-        )
+        self.fullconn_sensory_to_indexer = nn.Linear(784, 64)
+        self.fullconn_indexer_to_integrator = nn.Linear(64, 32)
 
-    def forward(self, x):
-        return self.net(x)
+        self.fullconn_sensory_skip_to_integrator = nn.Linear(784, 32)
+        self.fullconn_recaller_to_integrator = nn.Linear(784, 32)
 
+        self.fullconn_integrator_to_output = nn.Linear(32, 10)
 
-# MLP with skip connections
-class MLP_2HLSkip(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc1 = nn.Linear(784, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc_skip = nn.Linear(
-            784, 32
-        )  # skip connection from input to 2nd hidden layer
-        self.fc3 = nn.Linear(32, 10)
         self.relu = nn.ReLU()
 
-    def forward(self, x):
-        h1 = self.relu(self.fc1(x))
-        h2 = self.relu(self.fc2(h1) + self.fc_skip(x))
-        out = self.fc3(h2)
-        return out
+    def forward(self, x_sensory: torch.Tensor):
+        activations_indexer = self.relu(self.fullconn_sensory_to_indexer(x_sensory))
+
+        # TODO: Lookup the recaller's activations
+        # based on the indexer.
+
+        # FOR NOW: Set the recaller's activations to zero
+        x_recaller = torch.zeros_like(x_sensory)
+
+        activations_integrator = self.relu(
+            self.fullconn_indexer_to_integrator(activations_indexer)
+            + self.fullconn_recaller_to_integrator(x_recaller)
+        )
+
+        activations_output = self.fullconn_integrator_to_output(activations_integrator)
+        return activations_output
 
 
 def train_mlp(train_loader, test_loader):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # model = MLP_2HLStandard().to(device)
-    model = MLP_2HLSkip().to(device)
+    model = MLP_2HLSkipWithEideticMem().to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
