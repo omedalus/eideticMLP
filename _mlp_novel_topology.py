@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import _mnist_helpers
 
 from eidetic_hidden_layer_lookup import EideticHiddenLayerLookup
 

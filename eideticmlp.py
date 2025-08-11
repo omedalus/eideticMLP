@@ -13,6 +13,7 @@ def train_mlp(train_loader, test_loader):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = _mlp_novel_topology.MLP_2HLSkipWithEideticMem().to(device)
+    # model = _mlp_conventional_topologies.MLP_2HLSkip().to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -52,8 +53,8 @@ def evaluate(model, loader, device):
 
 def main():
     datatrain, datatest = _mnist_helpers.load_MNIST_dataset(
-        train_size=10000,
-        test_size=1000,
+        train_size=1000,
+        test_size=100,
     )
 
     print("Training set size:", len(datatrain.dataset))
