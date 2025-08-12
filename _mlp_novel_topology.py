@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+import _mnist_helpers
+
 from eidetic_hidden_layer_lookup import EideticHiddenLayerLookup
 
 
@@ -31,10 +33,22 @@ class MLP_2HLSkipWithEideticMem(nn.Module):
 
         activ_indexer = self.relu(self.fc_hl1_to_indexer(activ_hl1))
 
+        indexerlist = activ_indexer.tolist()
+        sensorylist = x_sensory.tolist()
+
         # For now, just have the recaller be a fixed value of all 0s.
         # Pad x_sensory with zeros to make it 794 units long for the recaller.
         # activ_recaller = torch.nn.functional.pad(x_sensory, (0, 10), "constant", 0)
         activ_recaller = torch.zeros_like(x_sensory)
+
+        # for i_indexer, indexer_onevec in enumerate(indexerlist):
+        #     recaller_onetensor = activ_recaller[i_indexer]
+        #     recall_vals = self.eidetic_mem.lookup(indexer_onevec)
+        #     if not recall_vals or not len(recall_vals):
+        #         continue
+        #     recall_val = recall_vals[0]
+        #     for irecallpos, recallscalar in enumerate(recall_val):
+        #         recaller_onetensor[irecallpos] = recallscalar
 
         activ_hl2 = self.relu(
             self.fc_hl1_to_hl2(activ_hl1)
@@ -45,9 +59,6 @@ class MLP_2HLSkipWithEideticMem(nn.Module):
         activ_output = self.fc_hl2_to_output(activ_hl2)
 
         if self.training:
-            indexerlist = activ_indexer.tolist()
-            sensorylist = x_sensory.tolist()
-
             keyvalpairs = list(zip(indexerlist, sensorylist))
             for key, val in keyvalpairs:
                 self.eidetic_mem.insert(key, val)

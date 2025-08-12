@@ -20,12 +20,24 @@ def train_mlp(train_loader, test_loader):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
+    data_samples_by_target = {}
+
+    for data, target in train_loader:
+        data, target = data.to(device), target.to(device)
+        for sampledata, sampletarget in zip(data, target):
+            print(_mnist_helpers.ascii_mnist_sample((sampledata, sampletarget)))
+
+    exit(88)
+
     last_nummemkeys = 0
     for epoch in range(NUM_EPOCHS):
         model.train()
         total_loss = 0
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
+
+            print(data[0].tolist())
+
             optimizer.zero_grad()
             output = model(data)
             loss = criterion(output, target)
