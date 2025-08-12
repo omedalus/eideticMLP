@@ -8,7 +8,7 @@ class EideticHiddenLayerLookup:
         self.enabled = True
 
         self._key_dimensionality = 0
-        self._dim_cellularization = 2
+        self._dim_cellularization = 4
         self._storage: Dict[str, List[Any]] = {}
         self._num_items = 0
 

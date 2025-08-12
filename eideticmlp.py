@@ -20,6 +20,7 @@ def train_mlp(train_loader, test_loader):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
+    last_nummemkeys = 0
     for epoch in range(NUM_EPOCHS):
         model.train()
         total_loss = 0
@@ -34,11 +35,15 @@ def train_mlp(train_loader, test_loader):
 
         avg_loss = total_loss / len(train_loader)
         acc = evaluate(model, test_loader, device)
-        print(
-            f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {avg_loss:.4f} - Test Accuracy: {acc:.2f}%"
-        )
 
-    print(model.eidetic_mem.diagnostic_print())
+        nummemkeys = len(model.eidetic_mem._storage.keys())
+
+        print(
+            f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {avg_loss:.4f} - Test Accuracy: {acc:.2f}% -- Eidetic memory cells: {nummemkeys} (+{nummemkeys - last_nummemkeys})"
+        )
+        last_nummemkeys = nummemkeys
+
+    # print(model.eidetic_mem.diagnostic_print())
 
 
 def evaluate(model, loader, device):
