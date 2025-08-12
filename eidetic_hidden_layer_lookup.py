@@ -8,7 +8,7 @@ class EideticHiddenLayerLookup:
         self.enabled = True
 
         self._key_dimensionality = 0
-        self._dim_cellularization = 10  # Should not exceed 64
+        self._dim_cellularization = 0.5
         self._storage: Dict[str, List[Any]] = {}
         self._num_items = 0
 
@@ -28,21 +28,16 @@ class EideticHiddenLayerLookup:
         """
         Cellularize the key into a list of integers based on the cellularization.
         """
-        retval = [int(x * self._dim_cellularization) for x in key]
+        retval = [int(x / self._dim_cellularization) for x in key]
         return retval
 
-    def _hashify_key(self, key: List[float]) -> str:
+    def _stringify_key(self, key: List[float]) -> str:
         """
-        Convert this key into a hash string, corresponding to a base64-encoded version
-        of its cellular representation.
+        Convert this key into a hashable string.
         """
-        BASE64_ALPHABET = (
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-        )
         cellular_key = self._cellularize_key(key)
-        keychars = [BASE64_ALPHABET[x] for x in cellular_key]
-        keyhash = "".join(keychars)
-        return keyhash
+        keystr = "-".join([f"{x}" for x in cellular_key])
+        return keystr
 
     def insert(self, key: List[float], value: any) -> bool:
         """
@@ -63,7 +58,7 @@ class EideticHiddenLayerLookup:
                 f"Inconsistent key dimensionality. New key length is {len(key)}, but expected {self._key_dimensionality}."
             )
 
-        keyhash = self._hashify_key(key)
+        keyhash = self._stringify_key(key)
         if keyhash not in self._storage:
             self._storage[keyhash] = []
 
@@ -75,6 +70,6 @@ class EideticHiddenLayerLookup:
         if not self.enabled:
             return []
 
-        keyhash = self._hashify_key(key)
+        keyhash = self._stringify_key(key)
         retval = self._storage.get(keyhash, [])
         return retval
