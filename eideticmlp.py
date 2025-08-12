@@ -1,8 +1,9 @@
+import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import _mnist_helpers
 
+import _mnist_helpers
 import _mlp_conventional_topologies
 import _mlp_novel_topology
 
@@ -15,7 +16,7 @@ def train_mlp(train_loader, test_loader):
     model = _mlp_novel_topology.MLP_2HLSkipWithEideticMem().to(device)
     # model = _mlp_conventional_topologies.MLP_2HLSkip().to(device)
 
-    model.eidetic_mem.enabled = True
+    model.eidetic_mem.enabled = False
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -25,9 +26,10 @@ def train_mlp(train_loader, test_loader):
     for data, target in train_loader:
         data, target = data.to(device), target.to(device)
         for sampledata, sampletarget in zip(data, target):
-            print(_mnist_helpers.ascii_mnist_sample((sampledata, sampletarget)))
-
-    exit(88)
+            stval = sampletarget.tolist()
+            if not data_samples_by_target.get(stval):
+                data_samples_by_target[stval] = []
+            data_samples_by_target[stval].append(sampledata)
 
     last_nummemkeys = 0
     for epoch in range(NUM_EPOCHS):
@@ -36,7 +38,16 @@ def train_mlp(train_loader, test_loader):
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
 
-            print(data[0].tolist())
+            # For every sample, randomly choose a second sample with the same target.
+            for idata, (sampledata, sampletarget) in enumerate(zip(data, target)):
+                stval = sampletarget.tolist()
+
+                # Flat-out give it the answer key.
+                for idataelem in range(len(sampledata)):
+                    sampledata[idataelem] = 0
+                sampledata[stval] = 1.0
+
+                print(_mnist_helpers.ascii_mnist_sample([sampledata, stval]))
 
             optimizer.zero_grad()
             output = model(data)
