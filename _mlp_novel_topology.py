@@ -51,6 +51,5 @@ class MLP_2HLSkipWithEideticMem(nn.Module):
             keyvalpairs = list(zip(indexerlist, sensorylist))
             for key, val in keyvalpairs:
                 self.eidetic_mem.insert(key, val)
-                print(len(self.eidetic_mem))
 
         return activ_output

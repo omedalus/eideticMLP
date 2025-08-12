@@ -38,6 +38,8 @@ def train_mlp(train_loader, test_loader):
             f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {avg_loss:.4f} - Test Accuracy: {acc:.2f}%"
         )
 
+    print(model.eidetic_mem.diagnostic_print())
+
 
 def evaluate(model, loader, device):
     model.eval()

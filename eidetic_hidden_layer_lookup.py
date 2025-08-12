@@ -73,3 +73,11 @@ class EideticHiddenLayerLookup:
         keyhash = self._stringify_key(key)
         retval = self._storage.get(keyhash, [])
         return retval
+
+    def diagnostic_print(self):
+        # Count which keys have the most elements.
+        keyswithcount = [[k, len(v)] for k, v in self._storage.items()]
+        for k, c in keyswithcount:
+            if c <= 1:
+                continue
+            print(k, c)
