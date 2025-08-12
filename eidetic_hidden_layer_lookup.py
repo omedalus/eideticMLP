@@ -8,7 +8,7 @@ class EideticHiddenLayerLookup:
         self.enabled = True
 
         self._key_dimensionality = 0
-        self._dim_cellularization = 0.5
+        self._dim_cellularization = 2
         self._storage: Dict[str, List[Any]] = {}
         self._num_items = 0
 
@@ -76,8 +76,6 @@ class EideticHiddenLayerLookup:
 
     def diagnostic_print(self):
         # Count which keys have the most elements.
-        keyswithcount = [[k, len(v)] for k, v in self._storage.items()]
+        keyswithcount = [[k, len(v)] for k, v in self._storage.items() if len(v) > 10]
         for k, c in keyswithcount:
-            if c <= 1:
-                continue
             print(k, c)
