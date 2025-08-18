@@ -8,9 +8,11 @@ class MLP_2HLStandard(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(784, 64),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(64, 4),
             nn.ReLU(),
-            nn.Linear(32, 10),
+            nn.Linear(4, 10),
+            nn.ReLU(),
+            nn.Linear(10, 10),
         )
 
     def forward(self, x):

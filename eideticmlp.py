@@ -7,16 +7,16 @@ import _mnist_helpers
 import _mlp_conventional_topologies
 import _mlp_novel_topology
 
-NUM_EPOCHS = 30
+NUM_EPOCHS = 300
 
 
 def train_mlp(train_loader, test_loader):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = _mlp_novel_topology.MLP_2HLSkipWithEideticMem().to(device)
-    # model = _mlp_conventional_topologies.MLP_2HLSkip().to(device)
+    # model = _mlp_novel_topology.MLP_2HLSkipWithEideticMem().to(device)
+    model = _mlp_conventional_topologies.MLP_2HLStandard().to(device)
 
-    model.eidetic_mem.enabled = False
+    # model.eidetic_mem.enabled = False
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
@@ -43,11 +43,11 @@ def train_mlp(train_loader, test_loader):
                 stval = sampletarget.tolist()
 
                 # Flat-out give it the answer key.
-                for idataelem in range(len(sampledata)):
-                    sampledata[idataelem] = 0
-                sampledata[stval] = 1.0
+                # for idataelem in range(len(sampledata)):
+                #     sampledata[idataelem] = 0
+                # sampledata[stval] = 1.0
 
-                print(_mnist_helpers.ascii_mnist_sample([sampledata, stval]))
+                # print(_mnist_helpers.ascii_mnist_sample([sampledata, stval]))
 
             optimizer.zero_grad()
             output = model(data)
@@ -59,12 +59,16 @@ def train_mlp(train_loader, test_loader):
         avg_loss = total_loss / len(train_loader)
         acc = evaluate(model, test_loader, device)
 
-        nummemkeys = len(model.eidetic_mem._storage.keys())
+        # nummemkeys = len(model.eidetic_mem._storage.keys())
+
+        # print(
+        #     f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {avg_loss:.4f} - Test Accuracy: {acc:.2f}% -- Eidetic memory cells: {nummemkeys} (+{nummemkeys - last_nummemkeys})"
+        # )
+        # last_nummemkeys = nummemkeys
 
         print(
-            f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {avg_loss:.4f} - Test Accuracy: {acc:.2f}% -- Eidetic memory cells: {nummemkeys} (+{nummemkeys - last_nummemkeys})"
+            f"Epoch {epoch+1}/{NUM_EPOCHS} - Loss: {avg_loss:.4f} - Test Accuracy: {acc:.2f}%"
         )
-        last_nummemkeys = nummemkeys
 
     # print(model.eidetic_mem.diagnostic_print())
 
